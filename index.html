@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://*.trycloudflare.com; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Mnemosyne</title>
+<style>
+  /* The page behind https://pgparadigm.github.io/mneme/. It holds no secret and
+     no app: it finds where the archive's door is right now and sends you there.
+     The look is the sign-in page's own (web/guest.html, Obsidian): these rules
+     are copied from it, so the two read as one piece of equipment. */
+  :root {
+    --void:      #07070B;
+    --panel:     #0D0D14;
+    --recess:    #101019;
+    --line:      #1E1E2E;
+    --line-lit:  #2E2A45;
+
+    --violet:    #B98CFF;   /* primary accent: text, rules, active state */
+    --violet-hi: #D9C2FF;   /* hover / emphasis */
+    --violet-mid:#7C3AED;   /* fills */
+    --violet-low:#2A1B47;   /* borders at rest */
+
+    --ink:       #F4F2FF;
+    --ink-soft:  #B9B4CE;
+    --ink-mute:  #7C7794;
+
+    --ok:        #7CF5C4;
+    --r:         10px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--void);
+    color: var(--ink);
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    /* faint violet bloom, top-left: depth without clutter */
+    background-image:
+      radial-gradient(120vw 80vh at 10% -10%, rgba(124,58,237,.14), transparent 60%),
+      radial-gradient(90vw 60vh at 100% 0%, rgba(185,140,255,.07), transparent 55%);
+    background-attachment: fixed;
+  }
+  .eyebrow {
+    font-size: .625rem; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--violet); margin: 0;
+  }
+  main {
+    min-height: 100dvh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1.6rem;
+    padding: 1.15rem; text-align: center;
+  }
+  .bezel {
+    position: relative; width: 100%; max-width: 26rem;
+    background: linear-gradient(180deg, var(--panel), var(--recess));
+    border: 1px solid var(--violet-low); border-radius: var(--r);
+    padding: 1.9rem 1.35rem 1.5rem; text-align: left;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 24px 60px -20px rgba(124,58,237,.35);
+  }
+  .bezel::before {   /* hairline of light along the top edge */
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--violet), transparent);
+    opacity: .55;
+  }
+  .plate { font-size: .62rem; letter-spacing: .3em; text-transform: uppercase;
+           color: var(--violet); margin-bottom: 0; }
+  .plate small { display: block; margin-top: .55rem; letter-spacing: 0;
+                 color: var(--ink-soft); text-transform: none; font-size: .82rem;
+                 line-height: 1.5; }
+  .hint { font-size: .78rem; color: var(--ink-mute); margin: 1.1rem 0 0; min-height: 1.3em; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Mnemosyne</p>
+  <div class="bezel">
+    <div class="plate" id="plate">Opening<small id="note">Finding the archive's door.</small></div>
+    <p class="hint" id="hint">One moment.</p>
+    <noscript><p class="hint">This page needs JavaScript to find the archive.</p></noscript>
+  </div>
+</main>
+<script>
+(function () {
+  // The address changes whenever the Mac's tunnel restarts, so it is read from
+  // pointer.json, never written here. Only a Cloudflare quick-tunnel address is
+  // ever followed, whatever pointer.json says.
+  var DOOR = /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/;
+  var plate = document.getElementById("plate");
+  var note = document.getElementById("note"), hint = document.getElementById("hint");
+  function asleep() {
+    plate.firstChild.nodeValue = "Asleep";
+    note.textContent = "The archive is closed right now.";
+    hint.textContent = "Mnemosyne opens when its Mac is awake. Try again later.";
+  }
+  fetch("pointer.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (d) {
+      if (!d || typeof d.url !== "string" || !DOOR.test(d.url)) return Promise.reject();
+      var ctl = new AbortController();
+      setTimeout(function () { ctl.abort(); }, 8000);
+      // cors on purpose: a dead tunnel answers with Cloudflare's own error page,
+      // which carries no CORS header, so the browser refuses it and we say asleep.
+      return fetch(d.url + "/alive", { mode: "cors", cache: "no-store", signal: ctl.signal })
+        .then(function (r) {
+          if (!r.ok) return Promise.reject();
+          location.replace(d.url + "/");
+        });
+    })
+    .catch(asleep);
+})();
+</script>
+</body>
+</html>
